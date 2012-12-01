@@ -1,20 +1,20 @@
 #include <LiquidCrystal.h>
 #include <Wire.h>
 #include <DHT.h>
-#include <DS1307RTC.h> 
+#include <DS1307RTC.h>
 #include <Time.h>
 #include <SPI.h>
 #include <Ethernet.h>
 #include <EEPROM.h>
 
 
-#define DHTPIN     9
+#define DHTPIN 9
 DHT dht(DHTPIN, DHT11);
 
-#define REDLed      A3
-#define GREENLed    A2
-#define PosUp       1
-#define BuzzerPin     8
+#define REDLed A3
+#define GREENLed A2
+#define PosUp 1
+#define BuzzerPin 8
 
 LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
 
@@ -22,8 +22,8 @@ long StartMillis = 0;
 long BlinkMillis = 0;
 long DisplayTemp = 0;
 #define UpdateTemp 20000
-#define UpdateData 300
-long DataMillis = 0;
+#define UpdateMessage 300000
+long MessageMillis = 0;
 
 
 float CurrentTemp, CurrentHum = -70;
@@ -128,8 +128,32 @@ byte ksi[8] = {
   B00000
 };
 
+byte misopanw[8] = {
+  B11111,
+  B11111,
+  B11111,
+  B11111,
+  B00000,
+  B00000,
+  B00000,
+  B00000
+};
+  
 
-byte mac[] = {  0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02 };
+byte misokatw[8] = {
+  B00000,
+  B00000,
+  B00000,
+  B00000,
+  B11111,
+  B11111,
+  B11111,
+  B11111
+};
+
+
+
+byte mac[] = { 0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02 };
 char serverName[] = "10.15.158.65";
 byte ip[] = { 10, 15, 158, 105 };
 byte subnet[] = { 255, 255, 255, 192 };
@@ -139,9 +163,7 @@ EthernetUDP Udp;
 EthernetClient client;
 
 EthernetServer server(80);
-String s = String(30);
-String cmd = "/X";
-String readString; 
+String readString;
 
 
 
@@ -151,10 +173,6 @@ byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing pack
 
 unsigned long unixtime;
 
-int start = 0;
-int x = 0;
-String data;
-int length=0;
 
 int AlarmHour = 0;
 int AlarmMinute = 0;
@@ -170,11 +188,11 @@ int CurrentWeekday = -70;
 
 boolean RedLedState = true;
 boolean LastRedLedState = true;
-boolean blinkLed = false;             // Blink LED or dots
 
 
 
-void setup() 
+
+void setup()
 {
   pinMode(REDLed, OUTPUT);
   pinMode(GREENLed, OUTPUT);
@@ -188,87 +206,44 @@ void setup()
   lcd.createChar(7, ksi);
   lcd.begin(16, 2);
   lcd.setCursor(0,0);
-  lcd.print("  Magla Clock");
-  lcd.setCursor(0,1);
-  lcd.print("ANT");
-  lcd.write(4);
-  lcd.print("NH");
-  lcd.print((char)246);
-  lcd.print(" MA");
-  lcd.write(6);
-  lcd.write(5);
-  lcd.print("APA");
-  lcd.print((char)246);
-  delay(3000);
+  lcd.print("  Magla  Clock");
+  delay(500);
   lcd.setCursor(0,1);
   lcd.print("EKKINH");
-//  lcd.write(4);
   lcd.print((char)246);
   lcd.print("H ");
   lcd.write(2);
   lcd.print("IKTYOY");
-  if (Ethernet.begin(mac) == 0) 
-  {
-    lcd.setCursor(0,1);
-    lcd.print("ME ");
-    lcd.print((char)246);
-//    lcd.write(4);
-    lcd.print("TATIKH IP...");
-    if (Ethernet.localIP())
-    {    
-      lcd.setCursor(0,1);
-      lcd.print("IP:");
-      lcd.print(Ethernet.localIP());
-      lcd.setCursor(0,1);
-//      lcd.write(4);
-      lcd.print((char)246);
-      lcd.print("Y");
-      lcd.write(6);
-      lcd.print("XPONI");
-      lcd.print((char)246);
-//      lcd.write(4);
-      lcd.print("MO");
-//      lcd.write(4);
-      lcd.print((char)246);
-      lcd.print("... ");
-      SynchronizeRTCwithNTP();
-      Udp.stop();
-      delay(3000);
-    }
-  }
-  else
-  {
-    lcd.setCursor(0,1);
-    lcd.print("DHCP            ");
-     // Connected from DHCP
-    lcd.setCursor(0,1);
-    lcd.print((char)246);
-//    lcd.write(4);
-    lcd.print("Y");
-    lcd.write(6);
-    lcd.print("XPONI");
-//    lcd.write(4);
-    lcd.print((char)246);
-    lcd.print("MO");
-//    lcd.write(4);
-    lcd.print((char)246);
-    lcd.print("... ");
-    SynchronizeRTCwithNTP();
-    Udp.stop();
-    delay(1000);
-  }
+  Ethernet.begin(mac, ip, dns, gateway, subnet);
+  delay(500);
+  lcd.setCursor(0,1);
+  lcd.print((char)246);
+  lcd.print("Y");
+  lcd.write(6);
+  lcd.print("XPONI");
+  lcd.print((char)246);
+  lcd.print("MO");
+  lcd.print((char)246);
+  lcd.print("... ");
+  SynchronizeRTCwithNTP();
+  Udp.stop();
+  delay(500);
   setSyncProvider(RTC.get);  
   lcd.setCursor(0,1);
+  lcd.print("EKKINH");
+  lcd.print((char)246);
+  lcd.print("H WEB... ");
+  delay(500);
   Ethernet.begin(mac, ip);
   server.begin();
   pinMode(BuzzerPin, OUTPUT);
   dht.begin();
   // set up the LCD's number of columns and rows:
   lcd.setCursor(0,0);
-  //         0123456789012345
+  // 0123456789012345
   lcd.print("                "); 
   lcd.setCursor(0,1);
-  lcd.print("                ");
+  lcd.print("                "); 
   CurrentHum = dht.readHumidity();
   CurrentTemp = dht.readTemperature();
   setSyncProvider(RTC.get);
@@ -286,7 +261,7 @@ void setup()
   if (CurrentTemp<10)
     lcd.print("0");
   lcd.print(CurrentTemp,0);
-//  lcd.print((char)223);
+// lcd.print((char)223);
   lcd.write(1);
   lcd.print("C");
   lcd.setCursor(13,0);
@@ -295,11 +270,11 @@ void setup()
   lcd.print(CurrentHum,0);
   lcd.print("%");
   BlinkDot=true;
-  Display=true;  
+  Display=true;
   StartMillis = millis();
   BlinkMillis = millis();
   DisplayTemp = millis();
-  DataMillis = millis();
+  MessageMillis = millis();
     
   
   AlarmHour = EEPROM.read(0);
@@ -321,29 +296,25 @@ void setup()
   {
     RedLedState=true;
     LastRedLedState=false;
-    if (!blinkLed)
-    {
     digitalWrite(GREENLed, LOW);
     digitalWrite(REDLed, HIGH);
-    }
   }
   else
   {
     RedLedState=false;
     LastRedLedState=true;
-    if (!blinkLed)
-    {
-      digitalWrite(GREENLed, HIGH);
-      digitalWrite(REDLed, LOW);
-    }
+    digitalWrite(GREENLed, HIGH);
+    digitalWrite(REDLed, LOW);
   }
   lcd.setCursor(2,0);
   lcd.print(":");
 }
 
-void loop() 
+
+void loop()
 {
-  if ((AlarmHour==hour()) && (AlarmMinute==minute()) && (RedLedState==true))
+  // If it's time to Alarm and it's not Sunday or Saturnday
+  if ((AlarmHour==hour()) && (AlarmMinute==minute()) && (RedLedState==true) && (weekday()!=1) && (weekday()!=7))
   {
     while (digitalRead(PosUp)==HIGH)
     {
@@ -356,43 +327,48 @@ void loop()
       for (int i=0; i<3; i++)
         Buzzer();
       delay(100);
-      lcd.setCursor(0,1);    
+      lcd.setCursor(0,1);
       lcd.print("                ");
       for (int i=0; i<3; i++)
         Buzzer();
-      delay(100);
+      delay(100);    
     }
     RedLedState=false;
     LastRedLedState=true;
   }
   
-  
-  
-  
+  // If switch is at Alarm On state and has changed state  
   if ((digitalRead(PosUp)==HIGH) && (LastRedLedState==false))
   {
-    if (!blinkLed)
+    if ((weekday()!=1) && (weekday()!=7))
     {
       digitalWrite(GREENLed, LOW);
       digitalWrite(REDLed, HIGH);
     }
-    RedLedState=true;
-    LastRedLedState=true;
-    lcd.setCursor(0,1);
-    lcd.print("A");
-    lcd.write(3);
-    lcd.print("OMENOYN    :  ");
-    CurrentRemainingHour = -70;
-    CurrentRemainingMinute = -70;
-    Display=true;
-  }
-  if ((digitalRead(PosUp)==LOW) && (LastRedLedState==true))
-  {
-    if (!blinkLed)
+    else
     {
       digitalWrite(GREENLed, HIGH);
       digitalWrite(REDLed, LOW);
     }
+    RedLedState=true;
+    LastRedLedState=true;
+    if (RemainingAlarmHour()<=6)
+    {
+      lcd.setCursor(0,1);
+      lcd.print("A");
+      lcd.write(3);
+      lcd.print("OMENOYN    :  ");
+      CurrentRemainingHour = -70;
+      CurrentRemainingMinute = -70;
+    }
+    Display=true;
+  }
+  
+  // If switch is at Alarm Off state and has changed state
+  if ((digitalRead(PosUp)==LOW) && (LastRedLedState==true))
+  {
+    digitalWrite(GREENLed, HIGH);
+    digitalWrite(REDLed, LOW);
     RedLedState=false;
     LastRedLedState=false;
     lcd.setCursor(0,1);
@@ -405,18 +381,16 @@ void loop()
     Display=true;
   }
   
+  // If switch has not change status and is at Alarm ON position
   if ((RedLedState==true) && (LastRedLedState==true))
   {
-    int x=AlarmHour-hour();
-    if (x<0)
-      x+=24;
-    if (x<=6)
+    if ((RemainingAlarmHour()<=6) && (weekday()!=1) && (weekday()!=7))          // If it's not Sunday or Saturnday
     {
-      CountDown();
+      CountDown();                                                              // Countdown time
     }
     else
     {
-      DisplaySomething();
+      DisplaySomething();                                                       // Display message
     }
   }
   if ((RedLedState==false) && (LastRedLedState==false))
@@ -424,37 +398,24 @@ void loop()
     DisplayWeekDay();
   }
 
-   
+  // Every 500ms (0.5 sec) make a blink.
   if (millis()-BlinkMillis > 500)
   {
     if (BlinkDot)
     {
-      if (blinkLed)
-      {
-        LedOn();
-      }
-      else
-      {
-        lcd.setCursor(2,0);
-        lcd.print(":");
-      }        
+      lcd.setCursor(2,0);
+      lcd.print(":");
     }
     else
     {
-      if (blinkLed)
-      {
-        LedOff();
-      }
-      else
-      {
-        lcd.setCursor(2,0);
-        lcd.print(" ");
-      }
+      lcd.setCursor(2,0);
+      lcd.print(" ");
     }
     BlinkDot=!BlinkDot;
     BlinkMillis = millis();
   }
   
+  // Update Temperature & Humidity from sensor every X
   if ((millis()-StartMillis) > UpdateTemp)
   {
     float h = dht.readHumidity();
@@ -484,39 +445,34 @@ void loop()
     StartMillis = millis();
   }
 
+  // Display Time
   PrintTime();
 
-
+  // Check if we have an Ethernet Client and then serve the web page and process the response.
   EthernetClient client = server.available();
   if (client)
   {
-    while (client.connected()) 
+    while (client.connected())
     {
       lcd.setCursor(0,1);
       lcd.write(3);
       lcd.print("PO");
       lcd.print((char)246);
-//      lcd.write(4);
       lcd.print("BA");
-//      lcd.write(4);
       lcd.print((char)246);
       lcd.print("H A");
       lcd.write(3);
       lcd.print("O WEB");
       boolean currentLineIsBlank = true;
-      if (client.available()) 
+      if (client.available())
       {
         char c = client.read();
-        if (readString.length() < 100) 
+        if (readString.length() < 100)
         {
-          readString += c; 
-        } 
-        // if you've gotten to the end of the line (received a newline
-        // character) and the line is blank, the http request has ended,
-        // so you can send a reply
-        if (c == '\n' && currentLineIsBlank) {
-          // send a standard http response header
-          
+          readString += c;
+        }
+        if (c == '\n' && currentLineIsBlank) 
+        {
           if (readString.indexOf("?") > -1)
           {
             int Pos_Hour = readString.indexOf("H");
@@ -524,7 +480,7 @@ void loop()
             int End = readString.indexOf("H", Pos_Minute);
             if(End < 0)
             {
-              End =  readString.length() + 1;
+              End = readString.length() + 1;
             }
             int bufLength = ((Pos_Minute) - (Pos_Hour+2));
             if (bufLength>3)
@@ -536,29 +492,43 @@ void loop()
             if (bufLength > 3)
               bufLength = 3;
             readString.substring((Pos_Minute+2), (End-1)).toCharArray(tmpBuf, bufLength);
-            AlarmMinute=atoi(tmpBuf);         
+            AlarmMinute=atoi(tmpBuf);
             EEPROM.write(0,AlarmHour);
-            EEPROM.write(1,AlarmMinute);   
+            EEPROM.write(1,AlarmMinute);
+            lcd.setCursor(0,1);
+            lcd.print(" E");
+            lcd.write(6);
+            lcd.print("INAN A");
+            lcd.write(5);
+            lcd.write(5);
+            lcd.print("A");
+            lcd.write(6);
+            lcd.print("E");
+            lcd.print((char)246);
+            lcd.print(" ");
+            delay(1500);            
             CurrentRemainingHour=-70;
             CurrentRemainingMinute=-70;
             CurrentDay=-70;
             CurrentWeekday=-70;
             CurrentYear=-70;
             Display=true;
-            RefreshState();
           }
-          
           client.println("HTTP/1.1 200 OK");
           client.println("Content-Type: text/html");
           client.println("Connnection: close");
           client.println();
           client.println("<html>");
-                    // add a meta refresh tag, so the browser pulls again every 5 seconds:
-//          client.println("<meta http-equiv=\"refresh\" content=\"180\" charset=\"UTF-8\">");
           client.println("<font face=\"Tahoma, Arial, Helvetica\" size=\"4\">");
-//          client.println("<STYLE TYPE=\"text/css\">");
           client.println("<BODY>");
-          client.print("Current Time: ");
+          client.println(":: <b>Magla Alarm Clock</b> ::<BR><BR>");
+          client.print("Temperature: <font color=red><b>");
+          client.print(CurrentTemp,0);
+          client.println("</b></font>&#176;C<BR>");
+          client.print("Humidity: <font color=blue>");
+          client.print(CurrentHum,0);
+          client.println("</font>%<BR><BR>");
+          client.print("Current Time: <font color=blue><b>");
           if (hour()<10)
             client.print("0");
           client.print(hour());
@@ -566,8 +536,8 @@ void loop()
           if (minute()<10)
             client.print("0");
           client.print(minute());
-          client.println("<BR>");
-          client.print("Alarm: ");
+          client.println("</b></font><BR>");
+          client.print("Alarm: <font color=red>");
           if (AlarmHour<10)
             client.print("0");
           client.print(AlarmHour);
@@ -575,37 +545,58 @@ void loop()
           if (AlarmMinute<10)
             client.print("0");
           client.print(AlarmMinute);
-          client.println("<BR><BR><BR>");
-          client.println("<form method=get>Hour:<input type=text size=2 name=H> Min:<input type=text size=2 name=M>&nbsp;<input name=E type=submit value=Submit></form>");
+          client.println("</font><BR>");
+          client.print("Remaining time: <font color=blue>");
+          int hr=AlarmHour-hour();
+          if (hr<0)
+            hr+=24;
+          int mn=AlarmMinute-minute();
+          if (mn<0)
+          {
+            mn+=60;
+            hr-=1;
+          }
+          if (hr<10)
+            client.print("0");
+          client.print(hr);
+          client.print(":");
+          if (mn<10)
+            client.print("0");
+          client.print(mn);
+          client.println("</font><BR>");
+          client.println("<BR>");
+          client.println("<form method=get>Hour:<input type=text size=4 name=H> Min:<input type=text size=4 name=M>&nbsp;<input name=E type=submit value=Submit></form>");
           client.println("</body>");
           client.println("</html>");
           break;
         }
         if (c == '\n') {
-          // you're starting a new line
           currentLineIsBlank = true;
         } 
         else if (c != '\r') {
-          // you've gotten a character on the current line
           currentLineIsBlank = false;
         }
       }
     }
-    // give the web browser time to receive the data
-    delay(1);
-    // close the connection:
+    delay(10);
     client.stop();
     readString="";
     delay(500);
     LastRedLedState=!LastRedLedState;
-  }  
+  }
   
+  // Refresh Messages every X
+  if (millis()-MessageMillis>UpdateMessage)
+  {
+    Display=true;
+    MessageMillis=millis();
+  }
   
+  // Reset Ethernet @ 3:00 & 15:00
   if (((hour()==3) && (minute()==0)) || ((hour()==15) && (minute()==0)))
   {
     resetEthernet();
   }
-
 }
 
 
@@ -635,47 +626,47 @@ void PrintTime()
 
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------
-//                          NTP RELATED
+// NTP RELATED
 
 void SynchronizeRTCwithNTP()
 {
   Udp.begin(8888);
   setSyncProvider(RTC.get);
   ntpupdate();
-  RTC.set(unixtime+(2*60*60));   // set the RTC and the system time to the received value
-  setTime(unixtime+(2*60*60));   
+  RTC.set(unixtime+(2*60*60)); // set the RTC and the system time to the received value
+  setTime(unixtime+(2*60*60));
 }
 
 void ntpupdate()
 {
   sendNTPpacket(timeServer);
-  delay(1000);  
-  if ( Udp.parsePacket() ) {  
-  Udp.read(packetBuffer,NTP_PACKET_SIZE);  // read the packet into the buffer
+  delay(1000);
+  if ( Udp.parsePacket() ) {
+  Udp.read(packetBuffer,NTP_PACKET_SIZE); // read the packet into the buffer
   unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
-  unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);  
-  unsigned long secsSince1900 = highWord << 16 | lowWord;  
-  const unsigned long seventyYears = 2208988800UL;    
-  unsigned long epoch = secsSince1900 - seventyYears;  
-  unixtime = epoch;    // Vazoyme sto unixtime thn wra se unix time format
+  unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
+  unsigned long secsSince1900 = highWord << 16 | lowWord;
+  const unsigned long seventyYears = 2208988800UL;
+  unsigned long epoch = secsSince1900 - seventyYears;
+  unixtime = epoch; // Vazoyme sto unixtime thn wra se unix time format
   }
 }
 
 unsigned long sendNTPpacket(IPAddress& address)
 {
   memset(packetBuffer, 0, NTP_PACKET_SIZE);
-  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
-  packetBuffer[1] = 0;     // Stratum, or type of clock
-  packetBuffer[2] = 6;     // Polling Interval
-  packetBuffer[3] = 0xEC;  // Peer Clock Precision
-  packetBuffer[12]  = 49;
-  packetBuffer[13]  = 0x4E;
-  packetBuffer[14]  = 49;
-  packetBuffer[15]  = 52;
+  packetBuffer[0] = 0b11100011; // LI, Version, Mode
+  packetBuffer[1] = 0; // Stratum, or type of clock
+  packetBuffer[2] = 6; // Polling Interval
+  packetBuffer[3] = 0xEC; // Peer Clock Precision
+  packetBuffer[12] = 49;
+  packetBuffer[13] = 0x4E;
+  packetBuffer[14] = 49;
+  packetBuffer[15] = 52;
   Udp.beginPacket(address, 123);
   Udp.write(packetBuffer,NTP_PACKET_SIZE);
   Udp.endPacket();
-}  
+}
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -720,7 +711,7 @@ void CountDown()
     if (x<10)
       lcd.print("0");
     lcd.print(x);
-    lcd.print("\"  ");
+    lcd.print("\" ");
     return;
   }
   
@@ -774,7 +765,6 @@ void DisplayWeekDay()
         lcd.print("AP");
         break;
       case 7:
-//        lcd.write(4);
         lcd.print((char)246);
         lcd.print("AB");
         break;
@@ -784,7 +774,7 @@ void DisplayWeekDay()
   if (CurrentDay!=day())
   {
     lcd.setCursor(5,1);
-    if (day()<0)
+    if (day()<10)
       lcd.print("0");
     lcd.print(day());
     CurrentDay=day();
@@ -792,7 +782,7 @@ void DisplayWeekDay()
   if (CurrentMonth!=month())
   {
     lcd.setCursor(8,1);
-    if (month()<0)
+    if (month()<10)
       lcd.print("0");
     lcd.print(month());
     CurrentMonth=month();
@@ -803,26 +793,6 @@ void DisplayWeekDay()
     lcd.print(year());
     CurrentYear=year();
   }
-}
-
-void LedOn()
-{
-  if (RedLedState==true)
-  {
-    digitalWrite(REDLed, HIGH);
-    digitalWrite(GREENLed, LOW);
-  }
-  else
-  {
-    digitalWrite(GREENLed, HIGH);
-    digitalWrite(REDLed, LOW);
-  }
-}
-
-void LedOff()
-{
-  digitalWrite(GREENLed, LOW);
-  digitalWrite(REDLed, LOW);
 }
 
 
@@ -862,7 +832,7 @@ void DisplaySomething()
     lcd.setCursor(0,1);
     if ((hour()>=9) && (hour()<13))
     {
-      lcd.print("   KA");
+      lcd.print(" KA");
       lcd.write(5);
       lcd.print("HMEPA!    ");
     }
@@ -872,7 +842,6 @@ void DisplaySomething()
       lcd.write(5);
       lcd.print("O ME");
       lcd.print((char)246);
-//      lcd.write(4);
       lcd.print("HMEPI! ");
     }
     if ((hour()>=17) && (hour()<20))
@@ -887,15 +856,15 @@ void DisplaySomething()
     }
     if ((hour()>=20) && (hour()<24))
     {
-      lcd.print("  KA");
+      lcd.print("   KA");
       lcd.write(5);
       lcd.print("O BPA");
       lcd.write(2);
-      lcd.print("Y!   ");
+      lcd.print("EYMA! ");
     }
     if ((hour()>=0) && (hour()<9))
     {
-      lcd.print("   KA");
+      lcd.print(" KA");
       lcd.write(5);
       lcd.print("HNYXTA!   ");
     }
@@ -903,3 +872,11 @@ void DisplaySomething()
   }
 }
 
+
+int RemainingAlarmHour()
+{
+  int x=AlarmHour-hour();
+  if (x<0)
+    x+=24;
+  return x;
+}
